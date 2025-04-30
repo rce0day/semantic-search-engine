@@ -36,7 +36,7 @@ The example data in dpdata.jsonl is products scraped from amazon.
 1. Clone the repository:
    ```
    git clone https://github.com/rce0day/semantic-search-engine.git
-   cd semantic-product-search
+   cd semantic-search-engine
    ```
 
 2. Start the Qdrant vector database with Docker Compose:
