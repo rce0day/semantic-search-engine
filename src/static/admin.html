@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vector DB Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/json-formatter-js@2.3.4/dist/json-formatter.umd.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-center text-blue-700">Vector Database Admin</h1>
+            <p class="text-center text-gray-600 mt-2">Explore and visualize your vector database</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4">Collections</h2>
+                <div id="collections-list" class="space-y-2">
+                    <div class="animate-pulse flex space-x-4">
+                        <div class="flex-1 space-y-3 py-1">
+                            <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+                            <div class="h-4 bg-gray-200 rounded w-1/2"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold" id="collection-title">Collection Details</h2>
+                        <div>
+                            <button id="refresh-button" class="bg-blue-600 text-white px-3 py-1 rounded-lg text-sm hover:bg-blue-700">
+                                Refresh
+                            </button>
+                            <input type="number" id="sample-size" min="1" max="100" value="10" 
+                                   class="w-16 px-2 py-1 border border-gray-300 rounded ml-2 text-sm" 
+                                   title="Sample size">
+                        </div>
+                    </div>
+                    
+                    <div id="collection-info" class="mb-6">
+                        <p class="text-gray-500">Select a collection to view details</p>
+                    </div>
+                    
+                    <div id="sample-title" class="text-lg font-medium mb-2 hidden">Sample Data</div>
+                    <div id="data-sample" class="overflow-x-auto"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const collectionsListEl = document.getElementById('collections-list');
+            const collectionTitleEl = document.getElementById('collection-title');
+            const collectionInfoEl = document.getElementById('collection-info');
+            const dataSampleEl = document.getElementById('data-sample');
+            const sampleTitleEl = document.getElementById('sample-title');
+            const refreshButton = document.getElementById('refresh-button');
+            const sampleSizeInput = document.getElementById('sample-size');
+            
+            let currentCollection = null;
+            fetchCollections();
+            refreshButton.addEventListener('click', () => {
+                if (currentCollection) {
+                    fetchCollectionSample(currentCollection);
+                } else {
+                    fetchCollections();
+                }
+            });
+            async function fetchCollections() {
+                try {
+                    const response = await fetch('/admin');
+                    const data = await response.json();
+                    collectionsListEl.innerHTML = '';
+                    
+                    if (data.error) {
+                        collectionsListEl.innerHTML = `<div class="text-red-500">${data.error}</div>`;
+                        return;
+                    }
+                    
+                    if (!data.collections || data.collections.length === 0) {
+                        collectionsListEl.innerHTML = '<div class="text-gray-500">No collections found</div>';
+                        return;
+                    }
+                    
+                    data.collections.forEach(collection => {
+                        const item = document.createElement('div');
+                        item.className = 'flex justify-between items-center p-2 hover:bg-gray-100 rounded cursor-pointer';
+                        item.innerHTML = `
+                            <div>
+                                <div class="font-medium">${collection.name}</div>
+                                <div class="text-sm text-gray-500">${collection.count} vectors</div>
+                            </div>
+                            <div>
+                                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                            </div>
+                        `;
+                        
+                        item.addEventListener('click', () => {
+                            currentCollection = collection.name;
+                            collectionTitleEl.textContent = collection.name;
+                            fetchCollectionSample(collection.name);
+                            
+                            document.querySelectorAll('#collections-list > div').forEach(el => {
+                                el.classList.remove('bg-blue-50', 'border-l-4', 'border-blue-500', 'pl-1');
+                            });
+                            item.classList.add('bg-blue-50', 'border-l-4', 'border-blue-500', 'pl-1');
+                        });
+                        
+                        collectionsListEl.appendChild(item);
+                    });
+                    
+                } catch (error) {
+                    console.error('Error fetching collections:', error);
+                    collectionsListEl.innerHTML = '<div class="text-red-500">Error loading collections</div>';
+                }
+            }
+            
+            async function fetchCollectionSample(collectionName) {
+                try {
+                    const sampleSize = sampleSizeInput.value || 10;
+                    collectionInfoEl.innerHTML = '<div class="animate-pulse"><div class="h-4 bg-gray-200 rounded w-1/2 mb-2"></div><div class="h-4 bg-gray-200 rounded w-3/4"></div></div>';
+                    dataSampleEl.innerHTML = '';
+                    sampleTitleEl.classList.add('hidden');
+                    
+                    const healthResponse = await fetch('/health');
+                    const healthData = await healthResponse.json();
+                    
+                    const formatter = new JSONFormatter(healthData, 1, {
+                        hoverPreviewEnabled: true,
+                        hoverPreviewArrayCount: 100,
+                        hoverPreviewFieldCount: 5,
+                        theme: 'dark',
+                        animateOpen: true,
+                        animateClose: true
+                    });
+                    
+                    collectionInfoEl.innerHTML = '';
+                    collectionInfoEl.appendChild(formatter.render());
+                    
+                    const sampleResponse = await fetch(`/collection/${collectionName}/sample?limit=${sampleSize}`);
+                    const sampleData = await sampleResponse.json();
+                    
+                    if (sampleData.error) {
+                        dataSampleEl.innerHTML = `<div class="text-red-500">${sampleData.error}</div>`;
+                        return;
+                    }
+                    
+                    if (!sampleData.points || sampleData.points.length === 0) {
+                        dataSampleEl.innerHTML = '<div class="text-gray-500">No data in collection</div>';
+                        return;
+                    }
+
+                    sampleTitleEl.classList.remove('hidden');
+
+                    const sampleFormatter = new JSONFormatter(sampleData.points, 1, {
+                        hoverPreviewEnabled: true,
+                        hoverPreviewArrayCount: 100,
+                        hoverPreviewFieldCount: 5,
+                        theme: 'dark',
+                        animateOpen: true,
+                        animateClose: true
+                    });
+                    
+                    dataSampleEl.innerHTML = '';
+                    dataSampleEl.appendChild(sampleFormatter.render());
+                    
+                } catch (error) {
+                    console.error('Error fetching collection sample:', error);
+                    collectionInfoEl.innerHTML = '<div class="text-red-500">Error loading collection info</div>';
+                }
+            }
+        });
+    </script>
+</body>
+</html> 
