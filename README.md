@@ -35,7 +35,7 @@ The example data in dpdata.jsonl is products scraped from amazon.
 
 1. Clone the repository:
    ```
-   git clone https://github.com/your-username/semantic-product-search.git
+   git clone https://github.com/rce0day/semantic-search-engine.git
    cd semantic-product-search
    ```
 
